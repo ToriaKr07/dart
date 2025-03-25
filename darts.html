@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactieve Dartgame</title>
+    <style>
+        body { text-align: center; font-family: Arial, sans-serif; transition: background 0.5s; }
+        #game-container { position: relative; display: inline-block; }
+        #dartboard { width: 500px; height: 500px; background: url('image.png') no-repeat center; background-size: cover; position: relative; }
+        #background { width: 600px; height: 600px; background: gray; position: absolute; top: -50px; left: -50px; z-index: -1; }
+        .dart { width: 40px; height: 100px; position: absolute; background: url('dartpijl.jpg') no-repeat center; background-size: contain; opacity: 0.8; }
+        #scoreboard { margin-top: 20px; font-size: 24px; }
+        #turnIndicator { margin-top: 10px; font-size: 18px; font-weight: bold; }
+        #menu { margin-bottom: 20px; }
+        #startingDart { width: 40px; height: 100px; position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: url('dartpijl.jpg') no-repeat center; background-size: contain; opacity: 0.8; cursor: grab; }
+        #winnerScreen { display: none; font-size: 24px; margin-top: 20px; }
+        #restartButton { margin-top: 20px; padding: 10px 20px; font-size: 18px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="menu">
+        <h2>Kies je spelmodus</h2>
+        <button onclick="chooseMode(true)">Tegen de computer</button>
+        <button onclick="chooseMode(false)">Tegen een andere speler</button>
+    </div>
+    <div id="game" style="display: none;">
+        <h1>Interactieve Dartgame</h1>
+        <p id="instructions">Sleep en laat los om de pijl te gooien!</p>
+        <div id="game-container">
+            <div id="background"></div>
+            <div id="dartboard"></div>
+            <div id="startingDart" draggable="true"></div>
+        </div>
+        <div id="scoreboard">Speler 1: 100 | Speler 2: 100</div>
+        <div id="turnIndicator">Speler 1's beurt!</div>
+    </div>
+    <div id="winnerScreen">
+        <h2 id="winnerMessage"></h2>
+        <button id="restartButton" onclick="restartGame()">Opnieuw spelen</button>
+    </div>
+    <script>
+        let player1Score = 100, player2Score = 100;
+        let throwsLeft = 3;
+        let playerTurn = true;
+        let againstComputer = true;
+        let startX, startY;
+        let dart = document.getElementById("startingDart");
+
+        const dartboardNumbers = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
+
+        function chooseMode(vsComputer) {
+            againstComputer = vsComputer;
+            document.getElementById("menu").style.display = "none";
+            document.getElementById("game").style.display = "block";
+        }
+
+        dart.addEventListener("dragstart", function(event) {
+            startX = event.clientX;
+            startY = event.clientY;
+        });
+
+        dart.addEventListener("dragend", function(event) {
+            if (!againstComputer || playerTurn) {
+                let diffX = startX - event.clientX;
+                let diffY = startY - event.clientY;
+                let newDart = document.createElement("div");
+                newDart.classList.add("dart");
+                newDart.style.left = `${250 - diffX}px`;
+                newDart.style.top = `${250 - diffY}px`;
+                document.getElementById("game-container").appendChild(newDart);
+
+                let score = calculateScore(250 - diffX, 250 - diffY);
+                if (score > 0) {
+                    updateScore(score);
+                }
+            }
+        });
+
+        function calculateScore(x, y) {
+            let centerX = 250, centerY = 250;
+            let distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+            let angle = Math.atan2(y - centerY, x - centerX) * (180 / Math.PI) + 180;
+            let sector = Math.floor((angle + 9) / 18) % 20;
+            let baseScore = dartboardNumbers[sector];
+            
+            if (distance < 25) return 50; // Bullseye
+            if (distance < 50) return 25; // Outer Bull
+            if (distance > 170) return 0; // Buiten het bord
+            if (distance > 110 && distance < 130) return baseScore * 3; // Triple ring
+            if (distance > 60 && distance < 80) return baseScore * 2; // Double ring
+            
+            return baseScore; // Normale sectie
+        }
+
+        function updateScore(points) {
+            if (playerTurn) {
+                if (player1Score - points >= 0) {
+                    player1Score -= points;
+                }
+            } else {
+                if (player2Score - points >= 0) {
+                    player2Score -= points;
+                }
+            }
+
+            document.getElementById("scoreboard").innerText = `Speler 1: ${player1Score} | Speler 2: ${player2Score}`;
+            
+            throwsLeft--;
+            if (throwsLeft === 0) {
+                clearDarts();
+                checkWinner();
+                switchTurn();
+            }
+        }
+
+        function switchTurn() {
+            throwsLeft = 3;
+            playerTurn = !playerTurn;
+            document.body.style.background = playerTurn ? "white" : "lightblue";
+            document.getElementById("turnIndicator").innerText = playerTurn ? "Speler 1's beurt!" : "Speler 2's beurt!";
+            if (againstComputer && !playerTurn) {
+                computerTurn();
+            }
+        }
+
+        function checkWinner() {
+            if (player1Score <= 0) {
+                showWinner("Speler 1 heeft gewonnen!");
+            } else if (player2Score <= 0) {
+                showWinner("Speler 2 heeft gewonnen!");
+            }
+        }
+
+        function showWinner(message) {
+            document.getElementById("winnerMessage").innerText = message;
+            document.getElementById("game").style.display = "none";
+            document.getElementById("winnerScreen").style.display = "block";
+        }
+
+        function clearDarts() {
+            document.querySelectorAll(".dart").forEach(dart => dart.remove());
+        }
+
+        function restartGame() {
+            player1Score = 100;
+            player2Score = 100;
+            throwsLeft = 3;
+            playerTurn = true;
+            document.getElementById("scoreboard").innerText = `Speler 1: 100 | Speler 2: 100`;
+            document.getElementById("turnIndicator").innerText = "Speler 1's beurt!";
+            document.getElementById("winnerScreen").style.display = "none";
+            document.getElementById("game").style.display = "block";
+        }
+
+        // Computer gooit automatisch
+        function computerTurn() {
+            setTimeout(() => {
+                let randomScore = Math.floor(Math.random() * 60) + 1; // Simuleer een score tussen 1 en 60
+                updateScore(randomScore);
+                clearDarts();
+                checkWinner();
+                switchTurn();
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
